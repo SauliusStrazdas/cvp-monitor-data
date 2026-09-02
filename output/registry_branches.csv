@@ -1,4 +1,58 @@
-﻿Kategorija,Juridinis_kodas,Padalinio_pavadinimas,Istaigos_tipas,Savivaldybe,Adresas,Padalinio_ID,Tikslinis_kodas,Tikslinis_pavadinimas
-Daugiafunkciai centrai,190136549,Kauno Jono ir Petro Vileišių mokykla,mokykla,Kaunas,"Partizanų g. 68, Kaunas",P1,190136549,Kauno Jono ir Petro Vileišių mokykla
-Daugiafunkciai centrai,190136549,Kauno Jono ir Petro Vileišių mokykla,mokykla,Kaunas,"A. Juozapavičiaus g. 2, Kaunas",P2,190136549,Kauno Jono ir Petro Vileišių mokykla
-Progimnazijos,190138176,Kauno Martyno Mažvydo progimnazija,progimnazija,Kaunas,"A. Mickevičiaus g. 54, Kaunas",P3,190138176,Kauno Martyno Mažvydo progimnazija
+﻿Kategorija,Juridinis_kodas,Padalinio_pavadinimas,Istaigos_tipas,Savivaldybe,Adresas,Padalinio_ID,Tikslinis_kodas,Tikslinis_pavadinimas,Saltinio_data
+Mokyklos-darželiai,191635156,"Kauno mokykla-darþelis ""Rûtelë""",Pradinë mokykla,Kaunas,"Kaunas, Kalnieèiø g. 167",88691960016,191635156,Kauno mokykla-darželis Rūtelė,2026-09-02
+Mokyklos-darželiai,191634816,"Kauno mokykla-darþelis ""Ðviesa""",Pradinë mokykla,Kaunas,"Kaunas, Rimvydo g. 20",88691960036,191634816,Kauno mokykla-darželis Šviesa,2026-09-02
+Mokyklos-darželiai,191094715,Kauno Tirkiliðkiø mokykla-darþelis,Ikimokyklinio ugdymo mokykla ; Pradinë mokykla,Kaunas,"Kaunas, M. Yèo g. 2",88691960071,191094715,Kauno Tirkiliškių mokykla-darželis,2026-09-02
+Mokyklos-darželiai,290140580,Kauno Motiejaus Valanèiaus mokykla-darþelis,Pradinë mokykla ; Ikimokyklinio ugdymo mokykla,Kaunas,"Kaunas, Kranto 5-oji g. 7",88691960031,290140580,Kauno Motiejaus Valančiaus mokykla-darželis,2026-09-02
+Mokyklos-darželiai,191846114,"Kauno Montesori mokykla-darþelis ""Þiburëlis""",Pradinë mokykla,Kaunas,"Kaunas, Verkiø g. 36",88691960011,191846114,Kauno Montesori mokykla-darželis Žiburėlis,2026-09-02
+Pradinės mokyklos,191642688,Kauno Prano Maðioto pradinë mokykla,Pradinë mokykla,Kaunas,"Kaunas, Rasytës g. 1",88691960163,191642688,Kauno Prano Mašioto pradinė mokykla,2026-09-02
+Pradinės mokyklos,190140622,"Kauno ""Paparèio"" pradinë mokykla",Pradinë mokykla,Kaunas,"Kaunas, Ðiaurës pr. 35",88691960032,190140622,Kauno Paparčio pradinė mokykla,2026-09-02
+Pradinės mokyklos,191828963,"Kauno ""Ryto"" pradinë mokykla",Pradinë mokykla ; Ikimokyklinio ugdymo mokykla,Kaunas,"Kaunas, Ðarkuvos g. 29",88691960094,191828963,Kauno Ryto pradinė mokykla,2026-09-02
+Pradinės mokyklos,191829150,"Kauno ""Ðilo"" pradinë mokykla",Pradinë mokykla,Kaunas,"Kaunas, Kariûnø pl. 3",88691960095,191829150,Kauno Šilo pradinė mokykla,2026-09-02
+Pradinės mokyklos,195096037,"Kauno ""Varpelio"" pradinë mokykla",Pradinë mokykla,Kaunas,"Kaunas, Vakarø g. 15",88691960203,195096037,Kauno Varpelio pradinė mokykla,2026-09-02
+Progimnazijos,290136920,"Vytauto Didþiojo universiteto ""Atþalyno"" progimnazija",Progimnazija ; Pradinë mokykla,Kaunas,"Kaunas, Partizanø g. 46",88691960142,290136920,Vytauto Didžiojo universiteto Atžalyno progimnazija,2026-09-02
+Progimnazijos,190136734,Kauno Simono Daukanto progimnazija,Progimnazija ; Pradinë mokykla,Kaunas,"Kaunas, Taikos pr. 68",88691960140,190136734,Kauno Simono Daukanto progimnazija,2026-09-02
+Progimnazijos,190135785,Kauno Jurgio Dobkevièiaus progimnazija,Progimnazija ; Pradinë mokykla,Kaunas,"Kaunas, V. Èepinskio g. 7",88691960178,190135785,Kauno Jurgio Dobkevičiaus progimnazija,2026-09-02
+Progimnazijos,190138938,Kauno Kazio Griniaus progimnazija,Progimnazija ; Pradinë mokykla,Kaunas,"Kaunas, Ðiaurës pr. 97",88691960155,190138938,Kauno Kazio Griniaus progimnazija,2026-09-02
+Progimnazijos,190139278,Kauno Tado Ivanausko progimnazija,Progimnazija ; Pradinë mokykla,Kaunas,"Kaunas, Vëtrungës g. 1",88691960130,190139278,Kauno Tado Ivanausko progimnazija,2026-09-02
+Progimnazijos,190138219,Kauno ðv. Kazimiero progimnazija,Progimnazija,Kaunas,"Kaunas, Vandþiogalos pl. 51",88691960151,190138219,Kauno šv. Kazimiero progimnazija,2026-09-02
+Progimnazijos,190134345,Kauno Vinco Kudirkos progimnazija,Progimnazija,Kaunas,"Kaunas, Trakø g. 39",88691960186,190134345,Kauno Vinco Kudirkos progimnazija,2026-09-02
+Progimnazijos,190137455,Kauno Viktoro Kuprevièiaus progimnazija,Progimnazija ; Pradinë mokykla,Kaunas,"Kaunas, Kovo 11-osios g. 94",88691960145,190137455,Kauno Viktoro Kuprevičiaus progimnazija,2026-09-02
+Progimnazijos,190138176,Kauno Martyno Maþvydo progimnazija,Progimnazija ; Pradinë mokykla,Kaunas,"Kaunas, Ðiaurës pr. 55",88691960149,190138176,Kauno Martyno Mažvydo progimnazija,2026-09-02
+Progimnazijos,190139997,Kauno Milikoniø progimnazija,Progimnazija ; Pradinë mokykla,Kaunas,"Kaunas, Baltijos g. 30",88691960161,190139997,Kauno Milikonių progimnazija,2026-09-02
+Progimnazijos,190140775,Kauno Panemunës pradinë mokykla,Pradinë mokykla,Kaunas,"Kaunas, Kariûnø pl. 5",88691960173,190140775,Kauno Panemunės progimnazija,2026-09-02
+Progimnazijos,191824947,Kauno Petraðiûnø progimnazija,Progimnazija,Kaunas,"Kaunas, M. Gimbutienës g. 9",88691960093,191824947,Kauno Petrašiūnų progimnazija,2026-09-02
+Progimnazijos,190138742,Kauno Pilënø progimnazija,Pradinë mokykla ; Progimnazija,Kaunas,"Kaunas, Ðiaurës pr. 73",88691960131,190138742,Kauno Pilėnų progimnazija,2026-09-02
+Progimnazijos,191816085,Kauno Senamiesèio progimnazija,Progimnazija,Kaunas,"Kaunas, Nemuno g. 12",88691960207,191816085,Kauno Senamiesčio progimnazija,2026-09-02
+Progimnazijos,191824228,Kauno Suzuki progimnazija,Pradinë mokykla ; Progimnazija,Kaunas,"Kaunas, Ðiaurës pr. 23",88691960042,191824228,Kauno Suzuki progimnazija,2026-09-02
+Progimnazijos,190137074,Kauno Juozo Urbðio progimnazija,Progimnazija,Kaunas,"Kaunas, Partizanø g. 68",88691960166,190137074,Kauno Juozo Urbšio progimnazija,2026-09-02
+Progimnazijos,190134498,Kauno technologijos universiteto Vaiþganto progimnazija,Pradinë mokykla ; Progimnazija,Kaunas,"Kaunas, Skuodo g. 27",88691960185,190134498,Kauno technologijos universiteto Vaižganto progimnazija,2026-09-02
+Progimnazijos,190135970,Kauno Þaliakalnio progimnazija,Progimnazija,Kaunas,"Kaunas, Ðirvintø g. 15",88691960176,190135970,Kauno Žaliakalnio progimnazija,2026-09-02
+Daugiafunkciai centrai,190138361,Kauno Bernardo Brazdþionio mokykla,Ikimokyklinio ugdymo mokykla ; Pradinë mokykla ; Pagrindinë mokykla,Kaunas,"Kaunas, Partizanø g. 22",88691960152,190138361,Kauno Bernardo Brazdžionio mokykla,2026-09-02
+Daugiafunkciai centrai,190136168,"Kauno ""Nemuno"" mokykla",Pagrindinë mokykla,Kaunas,"Kaunas, A. ir J. Gravrogkø g. 9",88691960134,190136168,Kauno Nemuno mokykla,2026-09-02
+Daugiafunkciai centrai,190138023,Kauno Aleksandro Stulginskio mokykla,Pagrindinë mokykla ; Pradinë mokykla ; Ikimokyklinio ugdymo mokykla,Kaunas,"Kaunas, Partizanø g. 152",88691960148,190138023,Kauno Aleksandro Stulginskio mokykla,2026-09-02
+Daugiafunkciai centrai,191090994,Kauno Vaiðvydavos mokykla,Pradinë mokykla ; Ikimokyklinio ugdymo mokykla ; Pagrindinë mokykla,Kaunas,"Kaunas, Vaiðvydo g. 28",88691960118,191090994,Kauno Vaišvydavos mokykla,2026-09-02
+Daugiafunkciai centrai,190136549,Kauno Jono ir Petro Vileiðiø mokykla,Pagrindinë mokykla,Kaunas,"Kaunas, Demokratø g. 36",88691960138,190136549,Kauno Jono ir Petro Vileišių mokykla,2026-09-02
+Daugiafunkciai centrai,190134530,Vytauto Didþiojo universiteto klasikinio ugdymo mokykla,Pagrindinë mokykla ; Pradinë mokykla ; Ikimokyklinio ugdymo mokykla,Kaunas,"Kaunas, Vokieèiø g. 164",88691960184,190134530,Vytauto Didžiojo universiteto klasikinio ugdymo licėjus,2026-09-02
+Suaugusiųjų mokyklos,295093070,Kauno suaugusiøjø ir jaunimo mokymo centras,Gimnazija ; Profesinio mokymo ástaiga,Kaunas,"Kaunas, Sandëliø g. 7",88691960137,295093070,Kauno suaugusiųjų ir jaunimo mokymo centras,2026-09-02
+Gimnazijos,190133777,"Kauno ""Auðros"" gimnazija",Pagrindinë mokykla ; Gimnazija,Kaunas,"Kaunas, Laisvës al. 95",88691960189,190133777,Kauno Aušros gimnazija,2026-09-02
+Gimnazijos,190139463,Kauno Jono Basanavièiaus gimnazija,Pagrindinë mokykla ; Gimnazija,Kaunas,"Kaunas, Ðarkuvos g. 28",88691960129,190139463,Kauno Jono Basanavičiaus gimnazija,2026-09-02
+Gimnazijos,290134150,Kauno Stepono Dariaus ir Stasio Girëno gimnazija,Pagrindinë mokykla ; Gimnazija,Kaunas,"Kaunas, Miðko g. 1",88691960187,290134150,Kauno Stepono Dariaus ir Stasio Girėno gimnazija,2026-09-02
+Gimnazijos,190133962,Kauno Gedimino sporto ir sveikatinimo gimnazija,Pagrindinë mokykla ; Pradinë mokykla ; Gimnazija,Kaunas,"Kaunas, Aukðtaièiø g. 78",88691960188,190133962,Kauno Gedimino sporto ir sveikatinimo gimnazija,2026-09-02
+Gimnazijos,190139659,Kauno Juozo Gruðo meno gimnazija,Pagrindinë mokykla ; Pradinë mokykla ; Gimnazija,Kaunas,"Kaunas, Ðarkuvos g. 30",88691960159,190139659,Kauno Juozo Grušo meno gimnazija,2026-09-02
+Gimnazijos,191825091,Kauno Jono Jablonskio gimnazija,Gimnazija ; Pagrindinë mokykla,Kaunas,"Kaunas, Auðros g. 3",88691960150,191825091,Kauno Jono Jablonskio gimnazija,2026-09-02
+Gimnazijos,190136353,Kauno technologijos universiteto inþinerijos licëjus,Gimnazija ; Pagrindinë mokykla ; Pradinë mokykla,Kaunas,"Kaunas, S. Lozoraièio g. 13",88691960133,190136353,Kauno technologijos universiteto inžinerijos licėjus,2026-09-02
+Gimnazijos,190136691,Kauno Kovo 11-osios gimnazija,Pagrindinë mokykla ; Pradinë mokykla ; Gimnazija,Kaunas,"Kaunas, Kovo 11-osios g. 50",88691960139,190136691,Kauno Kovo 11-osios gimnazija,2026-09-02
+Gimnazijos,290133810,Kauno Maironio universitetinë gimnazija,Pagrindinë mokykla ; Gimnazija,Kaunas,"Kaunas, Gimnazijos g. 3",88691960190,290133810,Kauno Maironio universitetinė gimnazija,2026-09-02
+Gimnazijos,190137989,Kauno Palemono gimnazija,Gimnazija ; Pradinë mokykla ; Pagrindinë mokykla,Kaunas,"Kaunas, Mariø g. 37",88691960147,190137989,Kauno Palemono gimnazija,2026-09-02
+Gimnazijos,190135447,Prezidento Valdo Adamkaus gimnazija,Gimnazija ; Ikimokyklinio ugdymo mokykla ; Pagrindinë mokykla ; Pradinë mokykla,Kaunas,"Kaunas, Bitininkø g. 31",88691960179,190135447,Prezidento Valdo Adamkaus gimnazija,2026-09-02
+Gimnazijos,300594100,Kauno Aleksandro Puðkino gimnazija,Gimnazija,Kaunas,"Kaunas, Vytauto pr. 50",88888880102,300594100,Kauno tarptautinė gimnazija,2026-09-02
+Gimnazijos,190138557,"Vytauto Didþiojo universiteto ""Rasos"" gimnazija",Gimnazija ; Pagrindinë mokykla ; Ikimokyklinio ugdymo mokykla,Kaunas,"Kaunas, P. Lukðio g. 40",88691960153,190138557,Vytauto Didžiojo universiteto Rasos gimnazija,2026-09-02
+Gimnazijos,191090841,Kauno Rokø gimnazija,Gimnazija,Kaunas,"Kaunas, Vijûnø g. 2",88691960165,191090841,Prezidento Antano Smetonos gimnazija,2026-09-02
+Gimnazijos,190139844,"Kauno ""Santaros"" gimnazija",Pagrindinë mokykla ; Gimnazija,Kaunas,"Kaunas, Baltø pr. 51",88691960201,190139844,Kauno Santaros gimnazija,2026-09-02
+Gimnazijos,190134683,"Kauno ""Saulës"" gimnazija",Gimnazija ; Pagrindinë mokykla,Kaunas,"Kaunas, Savanoriø pr. 46",88691960183,190134683,Kauno Saulės gimnazija,2026-09-02
+Gimnazijos,190138895,"Kauno ""Varpo"" gimnazija",Pagrindinë mokykla ; Gimnazija,Kaunas,"Kaunas, Rytø g. 19",88691960154,190138895,Kauno Varpo gimnazija,2026-09-02
+Gimnazijos,190135828,Kauno Verðvø gimnazija,Pradinë mokykla ; Pagrindinë mokykla ; Gimnazija,Kaunas,"Kaunas, Mûðos g. 6",88691960177,190135828,Kauno Veršvų gimnazija,2026-09-02
+Gimnazijos,190136887,"Kauno ""Vyturio"" gimnazija",Pradinë mokykla ; Pagrindinë mokykla ; Ikimokyklinio ugdymo mokykla ; Neformaliojo vaikø ðvietimo mokykla ir formaløjá ðvietimà papildanèio ugdymo mokykla ; Gimnazija,Kaunas,"Kaunas, Taikos pr. 51",88691960141,190136887,Kauno Vyturio gimnazija,2026-09-02
+Specialiosios mokyklos ir ugdymo centrai,190983430,Kauno Prano Daunio ugdymo centras,Pagrindinë mokykla ; Ikimokyklinio ugdymo mokykla ; Pradinë mokykla,Kaunas,"Kaunas, Taikos pr. 6A",88603090232,190983430,Kauno Prano Daunio ugdymo centras,2026-09-02
+Specialiosios mokyklos ir ugdymo centrai,290983050,Kauno Jono Lauþiko mokykla,Pradinë mokykla ; Pagrindinë mokykla,Kaunas,"Kaunas, Tunelio g. 41",88601990005,290983050,Kauno Jono Laužiko mokykla,2026-09-02
+Specialiosios mokyklos ir ugdymo centrai,190797479,Kauno specialioji mokykla,Pradinë mokykla ; Gimnazija ; Ikimokyklinio ugdymo mokykla ; Pagrindinë mokykla,Kaunas,"Kaunas, Apuolës g. 11",88601990013,190797479,Kauno šv. Roko mokykla,2026-09-02
