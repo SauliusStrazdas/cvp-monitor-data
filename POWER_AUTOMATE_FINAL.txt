@@ -1,0 +1,41 @@
+FINAL POWER AUTOMATE FLOW
+
+Flow name: CVP_Registras_Atnaujinti
+
+Trigger:
+Recurrence – 1 time daily.
+
+Actions, in this exact order:
+1. OneDrive for Business – Upload file from URL
+   Source URL:
+   https://raw.githubusercontent.com/<TAVO-GITHUB-USER>/cvp-monitor-data/main/output/registry_entities.csv
+   Destination:
+   /CVP_Mokyklos/Registras/registry_entities.csv
+   Overwrite: Yes
+
+2. OneDrive for Business – Upload file from URL
+   Source URL:
+   https://raw.githubusercontent.com/<TAVO-GITHUB-USER>/cvp-monitor-data/main/output/registry_branches.csv
+   Destination:
+   /CVP_Mokyklos/Registras/registry_branches.csv
+   Overwrite: Yes
+
+3. OneDrive for Business – Get file content using path
+   /CVP_Mokyklos/Registras/registry_entities.csv
+
+4. OneDrive for Business – Get file content using path
+   /CVP_Mokyklos/Registras/registry_branches.csv
+
+5. Excel Online (Business) – Run script
+   File: Mokyklos.xlsx
+   Script: CVP_Atnaujinti_Registracija_FINAL
+   entitiesCsv = body from step 3
+   branchesCsv = body from step 4
+   todayIso = formatDateTime(utcNow(),'yyyy-MM-dd')
+
+No Apply to each.
+No Filter array.
+No List rows.
+No manual Add a row.
+
+The existing CVP Import V3 flow remains separate and unchanged.
