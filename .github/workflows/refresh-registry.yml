@@ -1,41 +1,963 @@
-name: Refresh CVP registry
+#!/usr/bin/env python3
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * *"
+import csv
+import io
+import re
+import sys
+import zipfile
+import hashlib
+import urllib.request
+from pathlib import Path
+from datetime import datetime, timezone
 
-permissions:
-  contents: write
+# ============================================================
+# CVP MONITOR – AUTOMATINIS REGISTRAS
+# Šaltinis: oficialus Lietuvos švietimo įstaigų ZIP
+# ============================================================
 
-jobs:
-  refresh:
-    runs-on: ubuntu-latest
+SOURCE_URL = (
+    "https://www.geoportal.lt/download/opendata/"
+    "svietimo_istaigos/LT_svietimo_istaigos.zip"
+)
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+TARGET_FILE = Path("config/target_scope.csv")
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.x"
+OUT_ENTITIES = Path("output/registry_entities.csv")
+OUT_BRANCHES = Path("output/registry_branches.csv")
+HASH_FILE = Path("output/source.sha256")
 
-      - name: Refresh registry
-        run: python scripts/build_registry.py
 
-      - name: Commit refreshed output
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+# ============================================================
+# BENDROS FUNKCIJOS
+# ============================================================
 
-          git add output/registry_entities.csv
-          git add output/registry_branches.csv
-          git add output/source.sha256
+def norm(value):
+    """Teksto normalizavimas palyginimams."""
+    text = str(value or "").lower()
 
-          if git diff --cached --quiet; then
-            echo "No output changes."
-          else
-            git commit -m "Refresh registry output"
-            git push
-          fi
+    text = (
+        text.replace("„", "")
+        .replace("“", "")
+        .replace('"', "")
+        .replace("'", "")
+    )
+
+    text = re.sub(r"[\*\u00a0]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
+
+
+def code(value):
+    """Juridinio / ŠMIR kodo normalizavimas – paliekami tik skaitmenys."""
+    return re.sub(r"\D", "", str(value or ""))
+
+
+def clean_value(value):
+    """Saugus tekstinės reikšmės pavertimas į tekstą."""
+    if value is None:
+        return ""
+
+    return str(value).strip()
+
+
+def find_col(headers, aliases):
+    """
+    Suranda stulpelį pagal kelis galimus oficialaus šaltinio pavadinimus.
+    Pirmiausia tikslus normalizuotas sutapimas, po to dalinis.
+    """
+
+    normalized_headers = [
+        norm(h).replace(" ", "_")
+        for h in headers
+    ]
+
+    normalized_aliases = [
+        norm(a).replace(" ", "_")
+        for a in aliases
+    ]
+
+    # 1. Tikslus sutapimas
+    for alias in normalized_aliases:
+        if alias in normalized_headers:
+            return normalized_headers.index(alias)
+
+    # 2. Dalinis sutapimas
+    for index, header in enumerate(normalized_headers):
+        for alias in normalized_aliases:
+            if alias and alias in header:
+                return index
+
+    return None
+
+
+def read_csv_bytes(raw):
+    """
+    CSV skaitymas, paliekant galimybę naudoti ; arba ,.
+    """
+
+    text = raw.decode("utf-8-sig", errors="replace")
+
+    try:
+        sample = text[:30000]
+        dialect = csv.Sniffer().sniff(
+            sample,
+            delimiters=";,"
+        )
+    except csv.Error:
+        class DefaultDialect:
+            delimiter = ";"
+
+        dialect = DefaultDialect()
+
+    return list(
+        csv.reader(
+            io.StringIO(text),
+            dialect
+        )
+    )
+
+
+def write_csv(path, headers, rows):
+    """UTF-8-SIG CSV rašymas."""
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    with path.open(
+        "w",
+        encoding="utf-8-sig",
+        newline=""
+    ) as handle:
+
+        writer = csv.writer(handle)
+
+        writer.writerow(headers)
+        writer.writerows(rows)
+
+
+# ============================================================
+# TARGET_SCOPE
+# ============================================================
+
+def load_targets():
+    """
+    Perskaito mūsų 57 tikslinių įstaigų sąrašą.
+
+    Būtina:
+    - 57 eilutės
+    - Juridinis_kodas
+    - Pavadinimas
+    """
+
+    with TARGET_FILE.open(
+        encoding="utf-8-sig",
+        newline=""
+    ) as handle:
+
+        rows = list(
+            csv.DictReader(handle)
+        )
+
+    if len(rows) != 57:
+        raise RuntimeError(
+            "config/target_scope.csv turi turėti 57 eilutes, "
+            f"rasta {len(rows)}."
+        )
+
+    for index, row in enumerate(rows, start=1):
+
+        juridinis = code(
+            row.get("Juridinis_kodas", "")
+        )
+
+        pavadinimas = clean_value(
+            row.get("Pavadinimas", "")
+        )
+
+        if not juridinis:
+            raise RuntimeError(
+                f"target_scope.csv eilutėje {index} "
+                "nėra Juridinis_kodas."
+            )
+
+        if not pavadinimas:
+            raise RuntimeError(
+                f"target_scope.csv eilutėje {index} "
+                "nėra Pavadinimas."
+            )
+
+    return rows
+
+
+# ============================================================
+# ZIP / SHAPEFILE
+# ============================================================
+
+def install_pyshp():
+    """
+    GitHub Actions aplinkoje užtikrina pyshp paketą.
+    """
+
+    try:
+        import shapefile  # noqa: F401
+        return
+
+    except ImportError:
+        import subprocess
+
+        print("pyshp nerastas – diegiamas...")
+
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--disable-pip-version-check",
+                "--quiet",
+                "pyshp",
+            ]
+        )
+
+
+def find_shapefile_members(zip_file):
+    """
+    Suranda pirmą tinkamą SHP + SHX + DBF rinkinį ZIP faile.
+    """
+
+    names = zip_file.namelist()
+
+    shp_files = [
+        name
+        for name in names
+        if name.lower().endswith(".shp")
+    ]
+
+    if not shp_files:
+        raise RuntimeError(
+            "Oficialiame ZIP nerastas nė vienas .shp failas."
+        )
+
+    for shp_name in shp_files:
+
+        base = shp_name[:-4]
+
+        shx_name = base + ".shx"
+        dbf_name = base + ".dbf"
+
+        # Kai ZIP failų pavadinimų raidės skiriasi
+        lower_map = {
+            name.lower(): name
+            for name in names
+        }
+
+        shx_real = lower_map.get(
+            shx_name.lower()
+        )
+
+        dbf_real = lower_map.get(
+            dbf_name.lower()
+        )
+
+        if shx_real and dbf_real:
+            return (
+                shp_name,
+                shx_real,
+                dbf_real
+            )
+
+    raise RuntimeError(
+        "ZIP faile rastas .shp, tačiau nerastas "
+        "atitinkamas .shx ir .dbf failas."
+    )
+
+
+def read_official_shapefile(raw_zip):
+    """
+    Perskaito SHP duomenis tiesiai iš ZIP atmintyje.
+    """
+
+    install_pyshp()
+
+    import shapefile
+
+    zip_bytes = io.BytesIO(raw_zip)
+
+    with zipfile.ZipFile(
+        zip_bytes,
+        "r"
+    ) as archive:
+
+        shp_name, shx_name, dbf_name = (
+            find_shapefile_members(archive)
+        )
+
+        print("Naudojamas SHP:")
+        print(f"  {shp_name}")
+        print(f"  {shx_name}")
+        print(f"  {dbf_name}")
+
+        shp_bytes = io.BytesIO(
+            archive.read(shp_name)
+        )
+
+        shx_bytes = io.BytesIO(
+            archive.read(shx_name)
+        )
+
+        dbf_bytes = io.BytesIO(
+            archive.read(dbf_name)
+        )
+
+    reader = shapefile.Reader(
+        shp=shp_bytes,
+        shx=shx_bytes,
+        dbf=dbf_bytes
+    )
+
+    fields = [
+        field[0]
+        for field in reader.fields[1:]
+    ]
+
+    records = reader.records()
+
+    rows = [
+        list(record)
+        for record in records
+    ]
+
+    print(
+        f"SHP stulpelių: {len(fields)}"
+    )
+
+    print(
+        f"SHP eilučių: {len(rows)}"
+    )
+
+    return fields, rows
+
+
+# ============================================================
+# PAGRINDINĖ LOGIKA
+# ============================================================
+
+def main():
+
+    print("=" * 70)
+    print("CVP MONITOR – REGISTRO ATNAUJINIMAS")
+    print("=" * 70)
+
+    # --------------------------------------------------------
+    # 1. Tiksliniai 57 įrašai
+    # --------------------------------------------------------
+
+    targets = load_targets()
+
+    print(
+        f"TARGETS=57"
+    )
+
+    # --------------------------------------------------------
+    # 2. Oficialus ZIP
+    # --------------------------------------------------------
+
+    print(
+        "Atsisiunčiamas oficialus šaltinis:"
+    )
+
+    print(
+        SOURCE_URL
+    )
+
+    request = urllib.request.Request(
+        SOURCE_URL,
+        headers={
+            "User-Agent":
+                "cvp-monitor-data/1.0 "
+                "(GitHub Actions)"
+        }
+    )
+
+    try:
+
+        with urllib.request.urlopen(
+            request,
+            timeout=180
+        ) as response:
+
+            raw = response.read()
+
+    except Exception as exc:
+
+        raise RuntimeError(
+            "Nepavyko atsisiųsti oficialaus "
+            "Lietuvos švietimo įstaigų ZIP: "
+            f"{exc}"
+        ) from exc
+
+    if not raw:
+        raise RuntimeError(
+            "Oficialus ZIP grąžintas tuščias."
+        )
+
+    print(
+        f"SOURCE_BYTES={len(raw)}"
+    )
+
+    # --------------------------------------------------------
+    # 3. Šaltinio hash
+    # --------------------------------------------------------
+
+    digest = hashlib.sha256(
+        raw
+    ).hexdigest()
+
+    old_hash = (
+        HASH_FILE.read_text(
+            encoding="utf-8"
+        ).strip()
+        if HASH_FILE.exists()
+        else ""
+    )
+
+    if (
+        digest == old_hash
+        and OUT_ENTITIES.exists()
+        and OUT_BRANCHES.exists()
+    ):
+
+        print(
+            "SOURCE_UNCHANGED=1"
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # 4. SHP skaitymas
+    # --------------------------------------------------------
+
+    headers, data = (
+        read_official_shapefile(raw)
+    )
+
+    if len(headers) == 0:
+        raise RuntimeError(
+            "Oficialiame SHP nerasti stulpeliai."
+        )
+
+    if len(data) == 0:
+        raise RuntimeError(
+            "Oficialiame SHP nėra duomenų eilučių."
+        )
+
+    print(
+        "SHP HEADERS:"
+    )
+
+    print(
+        repr(headers)
+    )
+
+    # --------------------------------------------------------
+    # 5. Stulpelių paieška
+    # --------------------------------------------------------
+
+    ic = find_col(
+        headers,
+        [
+            "JAR kodas",
+            "Juridinio asmens kodas",
+            "Juridinis kodas",
+            "JAR",
+            "Kodas",
+            "Įmonės kodas",
+            "Imones kodas",
+            "JAR_KODAS",
+            "JAR_KOD",
+            "KODAS",
+        ]
+    )
+
+    inn = find_col(
+        headers,
+        [
+            "Įstaigos pavadinimas",
+            "Institucijos pavadinimas",
+            "Pavadinimas",
+            "Mokyklos pavadinimas",
+            "ISTAIGOS_PAVADINIMAS",
+            "PAVADINIMAS",
+        ]
+    )
+
+    ia = find_col(
+        headers,
+        [
+            "Adresas",
+            "Įstaigos adresas",
+            "Buveinės adresas",
+            "Adreso tekstas",
+            "ADRESAS",
+        ]
+    )
+
+    it = find_col(
+        headers,
+        [
+            "Įstaigos tipas",
+            "Institucijos tipas",
+            "Tipas",
+            "Įstaigos tipo pavadinimas",
+            "ISTAIGOS_TIPAS",
+            "TIPAS",
+        ]
+    )
+
+    im = find_col(
+        headers,
+        [
+            "Savivaldybė",
+            "Savivaldybės pavadinimas",
+            "Savivaldybe",
+            "SAVIVALDYBE",
+            "SAVIVALDYBĖ",
+        ]
+    )
+
+    iu = find_col(
+        headers,
+        [
+            "ŠMIR kodas",
+            "SMIR kodas",
+            "Padalinio kodas",
+            "Padalinio ID",
+            "ŠMIR",
+            "SMIR",
+            "SMIR_ID",
+            "SMIR_KODAS",
+            "ISTAIGOS_KODAS",
+            "PADALINIO_ID",
+        ]
+    )
+
+    # --------------------------------------------------------
+    # 6. Diagnostika
+    # --------------------------------------------------------
+
+    print("=" * 70)
+    print("STULPELIŲ ATPAŽINIMAS")
+    print("=" * 70)
+
+    print(
+        f"Juridinis / JAR kodas: index={ic}"
+    )
+
+    print(
+        f"Pavadinimas: index={inn}"
+    )
+
+    print(
+        f"Adresas: index={ia}"
+    )
+
+    print(
+        f"Tipas: index={it}"
+    )
+
+    print(
+        f"Savivaldybė: index={im}"
+    )
+
+    print(
+        f"Padalinio / ŠMIR ID: index={iu}"
+    )
+
+    if ic is None:
+        raise RuntimeError(
+            "Nepavyko nustatyti juridinio asmens "
+            "kodo stulpelio. "
+            f"Rasti stulpeliai: {headers}"
+        )
+
+    if inn is None:
+        raise RuntimeError(
+            "Nepavyko nustatyti įstaigos "
+            "pavadinimo stulpelio. "
+            f"Rasti stulpeliai: {headers}"
+        )
+
+    # --------------------------------------------------------
+    # 7. Tikslinių įstaigų žemėlapiai
+    # --------------------------------------------------------
+
+    by_code = {
+        code(
+            target["Juridinis_kodas"]
+        ): target
+        for target in targets
+    }
+
+    by_name = {
+        norm(
+            target["Pavadinimas"]
+        ): target
+        for target in targets
+    }
+
+    found = {
+        code(
+            target["Juridinis_kodas"]
+        ): []
+        for target in targets
+    }
+
+    # --------------------------------------------------------
+    # 8. Visų oficialaus šaltinio eilučių tikrinimas
+    # --------------------------------------------------------
+
+    for row_number, row in enumerate(
+        data,
+        start=1
+    ):
+
+        source_code = code(
+            row[ic]
+            if ic < len(row)
+            else ""
+        )
+
+        source_name = clean_value(
+            row[inn]
+            if inn < len(row)
+            else ""
+        )
+
+        # Pirmiausia juridinis kodas
+        target = (
+            by_code.get(
+                source_code
+            )
+            if source_code
+            else None
+        )
+
+        # Jei kodo nėra – pavadinimas
+        if target is None and source_name:
+
+            target = by_name.get(
+                norm(source_name)
+            )
+
+        if target is None:
+            continue
+
+        target_code = code(
+            target["Juridinis_kodas"]
+        )
+
+        current_code = (
+            source_code
+            or target_code
+        )
+
+        address = clean_value(
+            row[ia]
+            if ia is not None
+            and ia < len(row)
+            else ""
+        )
+
+        institution_type = clean_value(
+            row[it]
+            if it is not None
+            and it < len(row)
+            else ""
+        )
+
+        municipality = clean_value(
+            row[im]
+            if im is not None
+            and im < len(row)
+            else ""
+        )
+
+        unit_id = clean_value(
+            row[iu]
+            if iu is not None
+            and iu < len(row)
+            else ""
+        )
+
+        found[target_code].append(
+            (
+                current_code,
+                source_name,
+                address,
+                institution_type,
+                municipality,
+                unit_id,
+            )
+        )
+
+    # --------------------------------------------------------
+    # 9. Padalinių / adresų eilutės
+    # --------------------------------------------------------
+
+    branches = []
+
+    for target in targets:
+
+        target_code = code(
+            target["Juridinis_kodas"]
+        )
+
+        hits = found[
+            target_code
+        ]
+
+        for (
+            current_code,
+            name,
+            address,
+            institution_type,
+            municipality,
+            unit_id,
+        ) in hits:
+
+            branches.append(
+                [
+                    target["Kategorija"],
+                    current_code,
+                    name,
+                    institution_type,
+                    municipality,
+                    address,
+                    unit_id,
+                    target_code,
+                    target["Pavadinimas"],
+                    datetime.now(
+                        timezone.utc
+                    ).date().isoformat(),
+                ]
+            )
+
+    # --------------------------------------------------------
+    # 10. Pagrindinės 57 įstaigos
+    # --------------------------------------------------------
+
+    entities = []
+
+    found_count = 0
+
+    for index, target in enumerate(
+        targets,
+        start=1
+    ):
+
+        target_code = code(
+            target["Juridinis_kodas"]
+        )
+
+        hits = found[
+            target_code
+        ]
+
+        # Pirmenybė tiksliam juridiniam kodui
+        exact_hits = [
+            hit
+            for hit in hits
+            if hit[0] == target_code
+        ]
+
+        selected_hits = (
+            exact_hits
+            if exact_hits
+            else hits
+        )
+
+        if selected_hits:
+
+            found_count += 1
+
+            (
+                current_code,
+                name,
+                address,
+                institution_type,
+                municipality,
+                unit_id,
+            ) = selected_hits[0]
+
+            status = "Aktyvi"
+
+            check = "TAIP"
+
+            note = (
+                "Kodas pasikeitė"
+                if current_code != target_code
+                else ""
+            )
+
+        else:
+
+            current_code = target_code
+
+            name = target[
+                "Pavadinimas"
+            ]
+
+            address = ""
+
+            institution_type = ""
+
+            municipality = "Kaunas"
+
+            status = "Nerasta"
+
+            check = "NE"
+
+            note = (
+                "Šaltinyje nerasta"
+            )
+
+        entities.append(
+            [
+                index,
+                target["Kategorija"],
+                current_code,
+                name or target["Pavadinimas"],
+                institution_type,
+                municipality,
+                address,
+                check,
+                status,
+                "Oficialus Lietuvos "
+                "švietimo įstaigų duomenų rinkinys",
+                datetime.now(
+                    timezone.utc
+                ).date().isoformat(),
+                note,
+            ]
+        )
+
+    # --------------------------------------------------------
+    # 11. Apsaugos
+    # --------------------------------------------------------
+
+    if len(entities) != 57:
+        raise RuntimeError(
+            "Programos klaida: "
+            f"entities sugeneruota {len(entities)}, "
+            "turėjo būti 57."
+        )
+
+    if found_count == 0:
+        raise RuntimeError(
+            "Nė viena iš 57 tikslinių įstaigų "
+            "nebuvo rasta oficialiame šaltinyje."
+        )
+
+    if len(branches) == 0:
+        raise RuntimeError(
+            "Nesugeneruota nė viena padalinio / "
+            "adreso eilutė. "
+            "Tai būtų laikoma šaltinio arba "
+            "atitikimo klaida."
+        )
+
+    # --------------------------------------------------------
+    # 12. CSV rašymas
+    # --------------------------------------------------------
+
+    write_csv(
+        OUT_ENTITIES,
+        [
+            "Nr",
+            "Kategorija",
+            "Juridinis_kodas",
+            "Mokykla",
+            "Istaigos_tipas",
+            "Savivaldybe",
+            "Adresas",
+            "Tikrinti",
+            "Istaigos_statusas",
+            "Aptikimo_saltinis",
+            "Aptikimo_data",
+            "Pastabos",
+        ],
+        entities,
+    )
+
+    write_csv(
+        OUT_BRANCHES,
+        [
+            "Kategorija",
+            "Juridinis_kodas",
+            "Padalinio_pavadinimas",
+            "Istaigos_tipas",
+            "Savivaldybe",
+            "Adresas",
+            "Padalinio_ID",
+            "Tikslinis_kodas",
+            "Tikslinis_pavadinimas",
+            "Saltinio_data",
+        ],
+        branches,
+    )
+
+    # --------------------------------------------------------
+    # 13. Hash
+    # --------------------------------------------------------
+
+    HASH_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    HASH_FILE.write_text(
+        digest + "\n",
+        encoding="utf-8"
+    )
+
+    # --------------------------------------------------------
+    # 14. Galutinė diagnostika
+    # --------------------------------------------------------
+
+    print("=" * 70)
+
+    print(
+        "SOURCE_UNCHANGED=0"
+    )
+
+    print(
+        "TARGETS=57"
+    )
+
+    print(
+        f"FOUND={found_count}"
+    )
+
+    print(
+        f"NOT_FOUND={57 - found_count}"
+    )
+
+    print(
+        f"BRANCH_ROWS={len(branches)}"
+    )
+
+    print(
+        f"ENTITY_ROWS={len(entities)}"
+    )
+
+    print("=" * 70)
+
+    print(
+        "REGISTRY BUILD SUCCESS"
+    )
+
+
+if __name__ == "__main__":
+    main()
