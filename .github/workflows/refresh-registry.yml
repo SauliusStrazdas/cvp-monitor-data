@@ -2,6 +2,11 @@ name: Refresh CVP registry
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_registry.py"
+      - "config/target_scope.csv"
   schedule:
     - cron: "0 3 * * *"
 
