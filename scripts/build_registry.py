@@ -14,6 +14,8 @@ OUT_ENTITIES = Path("output/registry_entities.csv")
 OUT_BRANCHES = Path("output/registry_branches.csv")
 HASH_FILE = Path("output/source.sha256")
 
+MOJIBAKE_CHARS = set("þÐÞËëÈèÊêÙùÛûÌìÎîÏïðÑñÝý")
+
 
 def norm(value):
     text = str(value or "").lower()
@@ -82,7 +84,30 @@ def download_source():
     return raw
 
 
-def read_shp(raw_zip):
+def _read_with_encoding(parts, encoding):
+    for part in parts:
+        part.seek(0)
+    import shapefile
+    reader = shapefile.Reader(shp=parts[0], shx=parts[1], dbf=parts[2], encoding=encoding)
+    headers = [field[0] for field in reader.fields[1:]]
+    rows = [list(record) for record in reader.iterRecords()]
+    return headers, rows
+
+
+def _encoding_score(rows, targets):
+    text = " ".join(clean(v) for row in rows for v in row if v is not None)
+    mojibake_penalty = sum(text.count(ch) for ch in MOJIBAKE_CHARS)
+    replacement_penalty = text.count("�") * 20
+    target_names = [norm(t["Pavadinimas"]) for t in targets]
+    source_names = [norm(v) for row in rows for v in row if isinstance(v, str)]
+    exact_target_matches = sum(
+        1 for target_name in target_names
+        if target_name and target_name in source_names
+    )
+    return (exact_target_matches * 100) - mojibake_penalty - replacement_penalty
+
+
+def read_shp(raw_zip, targets):
     try:
         import shapefile
     except ImportError:
@@ -105,19 +130,24 @@ def read_shp(raw_zip):
             raise RuntimeError("ZIP faile nerastas pilnas SHP + SHX + DBF rinkinys.")
         parts = [io.BytesIO(archive.read(x)) for x in selected]
 
-    last_error = None
-    for encoding in ("utf-8", "cp1257", "cp1252", "latin1"):
+    candidates = []
+    for encoding in ("cp1257", "utf-8", "cp1252", "latin1"):
         try:
-            for part in parts:
-                part.seek(0)
-            reader = shapefile.Reader(shp=parts[0], shx=parts[1], dbf=parts[2], encoding=encoding)
-            headers = [field[0] for field in reader.fields[1:]]
-            rows = [list(record) for record in reader.iterRecords()]
-            print(f"SHP encoding={encoding} rows={len(rows)}")
-            return headers, rows
+            headers, rows = _read_with_encoding(parts, encoding)
+            score = _encoding_score(rows, targets)
+            candidates.append((score, encoding, headers, rows))
+            print(f"SHP encoding candidate={encoding} score={score} rows={len(rows)}")
         except Exception as exc:
-            last_error = exc
-    raise RuntimeError(f"Nepavyko perskaityti SHP/DBF: {last_error}")
+            print(f"SHP encoding candidate={encoding} failed={exc}")
+
+    if not candidates:
+        raise RuntimeError("Nepavyko perskaityti SHP/DBF jokia palaikoma koduote.")
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    score, encoding, headers, rows = candidates[0]
+    if score < 0:
+        raise RuntimeError(f"SHP/DBF koduotė nepatikima: geriausias kandidatas {encoding}, score={score}.")
+    print(f"SHP encoding selected={encoding} score={score} rows={len(rows)}")
+    return headers, rows
 
 
 def write_csv(path, headers, rows):
@@ -138,12 +168,10 @@ def main():
         print("SOURCE_UNCHANGED=1")
         return
 
-    headers, data = read_shp(raw)
+    headers, data = read_shp(raw, targets)
     if not data:
         raise RuntimeError("Oficialiame šaltinyje nėra duomenų.")
 
-    # Geoportal SHP schema verified in the failed run:
-    # Inst_kodas, ..., Tipas, Pav_LT, ..., Adresas, Sav_kodas, ..., JAR_kod_1, JAR_kod_2, ...
     jar1_col = find_col(headers, ["JAR_kod_1", "JAR kodas", "Juridinio asmens kodas", "Juridinis kodas"])
     jar2_col = find_col(headers, ["JAR_kod_2"])
     name_col = find_col(headers, ["Pav_LT", "Įstaigos pavadinimas", "Institucijos pavadinimas", "Pavadinimas"])
@@ -195,24 +223,25 @@ def main():
         hits = found[tc]
         exact = [h for h in hits if h["code"] == tc]
         primary = (exact or hits)[0] if hits else None
+        canonical_name = clean(target["Pavadinimas"])
 
         if primary:
             entities.append([
-                i, target["Kategorija"], primary["code"], primary["name"] or target["Pavadinimas"],
+                i, target["Kategorija"], tc, canonical_name,
                 primary["type"], primary["municipality"], primary["address"], "TAIP", "Aktyvi",
                 "VDA Švietimo ir mokslo institucijų duomenys", source_date,
-                "Kodas pasikeitė" if primary["code"] != tc else ""
+                "Šaltinio kodas nesutampa su tiksliniu juridiniu kodu" if primary["code"] != tc else ""
             ])
         else:
             entities.append([
-                i, target["Kategorija"], tc, target["Pavadinimas"], "", "Kaunas", "", "NE", "Nerasta",
+                i, target["Kategorija"], tc, canonical_name, "", "Kaunas", "", "NE", "Nerasta",
                 "VDA Švietimo ir mokslo institucijų duomenys", source_date, "Šaltinyje nerasta"
             ])
 
         for h in hits:
             branches.append([
-                target["Kategorija"], h["code"], h["name"] or target["Pavadinimas"], h["type"],
-                h["municipality"], h["address"], h["unit_id"], tc, target["Pavadinimas"], source_date
+                target["Kategorija"], h["code"], h["name"] or canonical_name, h["type"],
+                h["municipality"], h["address"], h["unit_id"], tc, canonical_name, source_date
             ])
 
     if len(entities) != 57:
