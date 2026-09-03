@@ -1,0 +1,91 @@
+CVP MONITOR – CVP SUTARČIŲ GAVIMO IR IMPORTO GALUTINĖ SCHEMA
+
+Tikslas:
+CVP IS/API -> GitHub daily snapshot -> Power Automate -> OneDrive /Duomenys -> CVP_Import_to_Table_V2 -> Excel.
+
+1. GitHub
+- Repository: SauliusStrazdas/cvp-monitor-data
+- Workflow: .github/workflows/refresh-contracts.yml
+- Script: scripts/build_contract_snapshot.py
+- Required repository secret: CVP_API_KEY
+- The secret is never stored in repository files.
+- Daily output: output/sutartys_YYYY-MM-DD.csv
+- CSV encoding: UTF-8 with BOM, delimiter: semicolon.
+- CSV has the 14 columns expected by CVP_Import_to_Table_V2_OfficeScript.
+
+2. Add GitHub secret
+GitHub -> cvp-monitor-data -> Settings -> Secrets and variables -> Actions -> New repository secret.
+Name: CVP_API_KEY
+Value: the API key provided in the official VPT API instructions.
+Do not put the key into Python, YAML, Excel or Power Automate text.
+
+Official VPT API endpoint used by the script:
+https://viesiejipirkimai.lt/epps-integration/api/cft-details-export
+
+3. Power Automate – create a separate scheduled flow
+Flow name: CVP_Sutartys_Gauti
+Trigger: Recurrence, once daily, after the GitHub contract workflow (for example 06:30 Lithuania time).
+
+Action 1:
+OneDrive for Business -> Upload file from URL
+Source URL expression:
+concat('https://raw.githubusercontent.com/SauliusStrazdas/cvp-monitor-data/main/output/sutartys_',formatDateTime(utcNow(),'yyyy-MM-dd'),'.csv')
+Destination folder:
+/CVP_Mokyklos/Duomenys
+File name:
+sutartys_[dynamic date].csv
+The final filename must be sutartys_YYYY-MM-DD.csv.
+Overwrite: Yes.
+
+Important: this flow only gets the daily snapshot from GitHub. It does not parse CVP rows.
+
+4. Existing CVP import flow
+Use the existing V2 flow/script after the daily file is present.
+Expected architecture:
+Recurrence
+ -> List files in /Duomenys
+ -> select newest sutartys_YYYY-MM-DD.csv by filename date
+ -> compare processed filename
+ -> Get file content
+ -> Run script CVP_Import_to_Table_V2_OfficeScript
+ -> update processed marker
+
+Run script parameters:
+csvText = Get file content of the selected daily CSV
+todayIso = formatDateTime(utcNow(),'yyyy-MM-dd')
+sourceFileName = selected file name
+
+5. Do not change
+- CVP_Atnaujinti_Registracija_FINAL V3
+- CVP_Registras_Atnaujinti entitiesCsv/branchesCsv/todayIso mappings
+- tblRegistracija structure
+- tblPadaliniai structure
+
+6. Contract processing rules already implemented in the V2 Office Script
+- Juridinis_kodas + Tikrinti=TAIP are the registration gate.
+- Expired contracts (Galioja_iki < today) are excluded.
+- Exact Sutarties_ID match => unchanged or changed based on Paskutinio_redagavimo_data.
+- Logical fallback is used only when ID changes.
+- tblCVP_NaujiDuomenys and tblCVP_Archyvas are written in bulk.
+- Optional tblBVPZ_Maitinimas enables the food-service BVPZ filter when populated.
+
+7. Branch/building identity rule
+Juridinis_kodas identifies the legal entity only.
+Specific building/branch identity must remain separate using Padalinio_ID + address + source branch name when available.
+Sutarties_ID identifies the individual contract.
+Do not force a branch match from Juridinis_kodas alone.
+
+8. Validation sequence
+A. Add CVP_API_KEY secret.
+B. Run GitHub Actions -> Refresh CVP contracts manually once.
+C. Confirm output/sutartys_YYYY-MM-DD.csv exists and is UTF-8.
+D. Confirm it contains only watched legal entities and valid contracts.
+E. Run CVP_Sutartys_Gauti once.
+F. Confirm /CVP_Mokyklos/Duomenys contains sutartys_YYYY-MM-DD.csv.
+G. Run/enable CVP_Import_to_Table_V2.
+H. Confirm tblCVP_NaujiDuomenys and tblCVP_Archyvas change.
+I. Only after that enable the recurring schedules.
+
+Rollback:
+- Disable CVP_Sutartys_Gauti and CVP_Import_to_Table_V2.
+- Existing registry flow remains independent.
