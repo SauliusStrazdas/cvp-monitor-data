@@ -2,15 +2,18 @@ name: Refresh CVP contracts
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "20 3 * * *"
 
 permissions:
   contents: write
 
+concurrency:
+  group: refresh-cvp-contracts
+  cancel-in-progress: true
+
 jobs:
   refresh-contracts:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
