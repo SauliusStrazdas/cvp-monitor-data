@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import csv
 import sys
-from datetime import date
+from datetime import date, datetime
 
 EXPECTED_HEADER = [
     "Sutarties unikalus ID",
@@ -21,64 +21,87 @@ EXPECTED_HEADER = [
     "Tipas",
 ]
 
+def parse_date(value: str):
+    text = (value or "").strip()
+    for fmt in ("%Y-%m-%d", "%Y.%m.%d", "%d.%m.%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(text[:10], fmt).date()
+        except ValueError:
+            pass
+    return None
 
 def main(path: str) -> None:
     with open(path, "r", encoding="utf-8-sig", newline="") as f:
-        rows = list(csv.reader(f, delimiter=";"))
+        raw = f.read()
 
-    # CVP export may contain PHP warning rows consisting only of semicolons.
+    lowered = raw[:4000].lower()
+    html_markers = ("<html", "<!doctype", "<br", "<b>notice", "undefined constant", "php")
+    if any(marker in lowered for marker in html_markers):
+        # Allow only the known CVP export quirk: leading semicolon-only/PHP-warning lines.
+        lines = raw.splitlines()
+        while lines and (
+            not lines[0].strip()
+            or all(cell.strip() == "" for cell in lines[0].split(";"))
+            or "<br" in lines[0].lower()
+            or "<b>notice</b>" in lines[0].lower()
+            or "undefined constant" in lines[0].lower()
+        ):
+            lines.pop(0)
+        raw = "\n".join(lines)
+        if raw.lstrip().lower().startswith(("<html", "<!doctype", "<br", "<b>notice")):
+            raise RuntimeError("Šaltinis grąžino HTML/PHP klaidą vietoje CVP CSV.")
+
+    rows = list(csv.reader(raw.splitlines(), delimiter=";"))
     while rows and all(cell.strip() == "" for cell in rows[0]):
         rows.pop(0)
 
     if not rows:
         raise RuntimeError("CSV tuščias.")
 
-    if rows[0] != EXPECTED_HEADER:
-        raise RuntimeError(
-            "Netikėta CSV antraštė. Gauta: " + ";".join(rows[0])
-        )
+    header = [cell.strip() for cell in rows[0]]
+    if header != EXPECTED_HEADER:
+        raise RuntimeError("Netikėta CSV antraštė: " + ";".join(header))
 
-    data = [r for r in rows[1:] if any(cell.strip() for cell in r)]
+    data = [row for row in rows[1:] if any(cell.strip() for cell in row)]
     if not data:
         raise RuntimeError("CSV neturi duomenų eilučių.")
-    if any(len(r) < 15 for r in data):
-        raise RuntimeError("Bent viena CSV duomenų eilutė turi mažiau nei 15 stulpelių.")
+    if any(len(row) != 15 for row in data):
+        bad = next(len(row) for row in data if len(row) != 15)
+        raise RuntimeError(f"CSV turi ne 15, o {bad} stulpelių bent vienoje eilutėje.")
 
-    today = date(2026, 9, 3)
-    valid = 0
+    with open("config/target_scope.csv", "r", encoding="utf-8-sig", newline="") as f:
+        targets = {
+            row["Juridinis_kodas"].strip()
+            for row in csv.DictReader(f)
+            if row.get("Juridinis_kodas")
+        }
+
+    today = date.today()
     monitored = 0
+    valid = 0
+    invalid_dates = 0
+
     for row in data:
         code = row[6].strip()
-        if code not in {
-            "191635156", "191634816", "191094715", "290140580", "191846114",
-            "191642688", "190140622", "191828963", "191829150", "195096037",
-            "290136920", "190136734", "190135785", "190138938", "190139278",
-            "190138219", "190134345", "190137455", "190138176", "190139997",
-            "190140775", "191824947", "190138742", "191816085", "191824228",
-            "190137074", "190134498", "190135970", "190138361", "190136168",
-            "190138023", "191090994", "190136549", "190134530", "295093070",
-            "190133777", "190139463", "290134150", "190133962", "190139659",
-            "191825091", "190136353", "190136691", "290133810", "190137989",
-            "190135447", "300594100", "190138557", "191090841", "190139844",
-            "190134683", "190138895", "190135828", "190136887", "190983430",
-            "290983050", "190797479",
-        }:
+        if code not in targets:
             continue
         monitored += 1
-        try:
-            expiry = date.fromisoformat(row[11].strip())
-        except ValueError:
+        expiry = parse_date(row[11])
+        if expiry is None:
+            invalid_dates += 1
             continue
         if expiry >= today:
             valid += 1
 
     if monitored == 0:
-        raise RuntimeError("CSV neturi nė vienos iš 57 stebimų juridinių kodų eilučių.")
+        raise RuntimeError("CSV nerasta nė vienos iš konfigūracijoje stebimų įstaigų.")
     if valid == 0:
-        raise RuntimeError("CSV nėra nė vienos šiandien galiojančios stebimos sutarties.")
+        raise RuntimeError("CSV nerasta nė vienos šiandien galiojančios stebimos sutarties.")
 
-    print(f"PASS: rows={len(data)} monitored={monitored} valid={valid} columns={len(rows[0])}")
-
+    print(
+        f"PASS: rows={len(data)} monitored={monitored} valid={valid} "
+        f"invalid_dates={invalid_dates} columns={len(header)}"
+    )
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
