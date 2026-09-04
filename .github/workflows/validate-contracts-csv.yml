@@ -1,0 +1,32 @@
+name: Validate CVP contract CSV
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "fixtures/contracts_sample.csv"
+      - "scripts/validate_contract_csv.py"
+      - ".github/workflows/validate-contracts-csv.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-cvp-contract-csv
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Validate sample CSV
+        run: python scripts/validate_contract_csv.py fixtures/contracts_sample.csv
